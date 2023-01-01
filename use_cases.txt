@@ -1,0 +1,17 @@
+---
+Llenar unos campos para crear un libro.
+Por el momento, solo un titulo y un autor basta.
+Que ese libro quede registrado.
+Asociar temas con ese libro.
+Poder listar mis libros por tema.
+Poder listar todos mis libros.
+---
+Llenar unos campos para un curso.
+Titulo, enlace, Plataformas (Aunque esto puede estar vacío).
+Asociar temas con ese curso.
+---
+Los `temas` son `explicados` por `fragmentos`.
+Los fragmentos son, eso, fragmentos, de un recurso `bibliográfico`.
+La explicación es una entidad en sí misma.
+---
+Quisiera poder descargar los libros y los cursos para los cuales tenga un link de descarga.
