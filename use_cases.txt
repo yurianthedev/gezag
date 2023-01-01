@@ -15,3 +15,5 @@ Los fragmentos son, eso, fragmentos, de un recurso `bibliográfico`.
 La explicación es una entidad en sí misma.
 ---
 Quisiera poder descargar los libros y los cursos para los cuales tenga un link de descarga.
+---
+Quisiera poder cargar typos de recursos bibliográficos dinamicamente.

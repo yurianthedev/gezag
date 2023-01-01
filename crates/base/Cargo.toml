@@ -1,0 +1,22 @@
+[package]
+name = "base"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+url = "~2.3.1"
+toml = "0.5.10"
+
+[dependencies.serde]
+version = "1.0.152"
+features = ["derive"]
+
+[dependencies.chrono]
+version = "0.4.23"
+features = ["serde"]
+
+[dependencies.uuid]
+version = "~1.2.2"
+features = ["v4"]

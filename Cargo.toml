@@ -1,13 +1,2 @@
-[package]
-name = "gezag"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-url = "~2.3.1"
-
-[dependencies.uuid]
-version = "~1.2.2"
-features = ["v4"]
+[workspace]
+members = ["crates/*"]
