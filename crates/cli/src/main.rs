@@ -18,7 +18,7 @@ fn main() {
                     .unwrap()
                     .add(Resource {
                         id: uuid::Uuid::new_v4(),
-                        metadata: resources::Kind::Book {
+                        kind: resources::Kind::Book {
                             title: "Bruh".to_string(),
                             author: "Bruh momemnto".to_string(),
                         },

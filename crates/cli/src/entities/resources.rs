@@ -7,7 +7,7 @@ use super::topics::Topic;
 #[derive(Serialize, Deserialize)]
 pub struct Resource {
     pub id: Uuid,
-    pub metadata: Kind,
+    pub kind: Kind,
     pub topics: HashSet<Topic>,
 }
 
