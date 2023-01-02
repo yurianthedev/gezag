@@ -1,18 +1,17 @@
-use std::{collections::HashSet, path::Path};
+fn main() {}
 
-use base::{
-    domain::{repository::Add, resource::Book},
-    infrastructure::shelf::local::Local,
-};
+mod config {
+    use std::path::Path;
 
-fn main() {
-    let mut local = Local::new::<Book>(Path::new("./index.toml")).unwrap();
-    let book = Book {
-        title: "Hi".to_string(),
-        authors: HashSet::new(),
-        first_published_at: None,
-        revisions: Vec::new(),
-    };
+    struct CoupledConfig<'a> {
+        config_location: &'a Path,
+    }
+}
 
-    local.add(book).unwrap();
+mod local {
+    use std::path::Path;
+
+    struct Config<'a> {
+        index_location: &'a Path,
+    }
 }
