@@ -7,5 +7,23 @@ edition = "2021"
 
 [dependencies]
 base = { path = "../base" }
-clap = "4.0.32"
 toml = "0.5.10"
+url = "~2.3.1"
+directories = "4.0.1"
+serde_json = "1.0"
+
+[dependencies.clap]
+version = "4.0.32"
+features = ["cargo", "derive"]
+
+[dependencies.serde]
+version = "1.0.152"
+features = ["derive"]
+
+[dependencies.chrono]
+version = "0.4.23"
+features = ["serde"]
+
+[dependencies.uuid]
+version = "~1.2.2"
+features = ["v4", "serde"]

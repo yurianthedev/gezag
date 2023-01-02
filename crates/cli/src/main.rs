@@ -1,17 +1,31 @@
-fn main() {}
+mod cli;
+mod entities;
+mod index;
 
-mod config {
-    use std::path::Path;
+use clap::Parser;
+use std::collections::HashSet;
 
-    struct CoupledConfig<'a> {
-        config_location: &'a Path,
-    }
-}
+use crate::cli::*;
+use crate::entities::resources::{self, Add, Resource};
+use crate::index::local;
 
-mod local {
-    use std::path::Path;
-
-    struct Config<'a> {
-        index_location: &'a Path,
-    }
+fn main() {
+    let command = Cli::parse();
+    match command.entity {
+        Entities::Resources(res) => match res.action {
+            Actions::Add(add) => match add.kind {
+                Kind::Book => local::Indexer::new("config.json")
+                    .unwrap()
+                    .add(Resource {
+                        id: uuid::Uuid::new_v4(),
+                        metadata: resources::Kind::Book {
+                            title: "Bruh".to_string(),
+                            author: "Bruh momemnto".to_string(),
+                        },
+                        topics: HashSet::new(),
+                    })
+                    .unwrap(),
+            },
+        },
+    };
 }
