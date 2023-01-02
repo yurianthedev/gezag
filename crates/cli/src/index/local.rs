@@ -51,8 +51,13 @@ impl Indexer {
     {
         let content = fs::read_to_string(&self.index_path)?;
         let mut index: Index = serde_json::from_str(&content).unwrap_or_default();
+
         updt(&mut index);
-        fs::write(&self.index_path, serde_json::to_string(&index)?.as_bytes())?;
+
+        fs::write(
+            &self.index_path,
+            serde_json::to_string_pretty(&index)?.as_bytes(),
+        )?;
         Ok(())
     }
 }

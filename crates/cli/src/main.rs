@@ -14,7 +14,7 @@ fn main() {
     match command.entity {
         Entities::Resources(res) => match res.action {
             Actions::Add(add) => match add.kind {
-                Kind::Book => local::Indexer::new("config.json")
+                Kind::Book => local::Indexer::new("index.json")
                     .unwrap()
                     .add(Resource {
                         id: uuid::Uuid::new_v4(),
