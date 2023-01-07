@@ -1,31 +1,15 @@
 mod cli;
 mod entities;
-mod index;
+mod indexer;
+mod repositories;
 
 use clap::Parser;
-use std::collections::HashSet;
 
 use crate::cli::*;
-use crate::entities::resources::{self, Add, Resource};
-use crate::index::local;
+use crate::indexer::local;
 
 fn main() {
-    let command = Cli::parse();
-    match command.entity {
-        Entities::Resources(res) => match res.action {
-            Actions::Add(add) => match add.kind {
-                Kind::Book => local::Indexer::new("index.json")
-                    .unwrap()
-                    .add(Resource {
-                        id: uuid::Uuid::new_v4(),
-                        kind: resources::Kind::Book {
-                            title: "Bruh".to_string(),
-                            author: "Bruh momemnto".to_string(),
-                        },
-                        topics: HashSet::new(),
-                    })
-                    .unwrap(),
-            },
-        },
-    };
+    let cli = Cli::parse();
+    let local_indexer = local::Indexer::new("index.json").unwrap();
+    cli.run(local_indexer);
 }
