@@ -3,6 +3,7 @@ pub mod config;
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use directories::UserDirs;
 use std::{collections::HashSet, env, ffi::OsString, path::Path};
+use text_io::read;
 
 use crate::{
     entities::{
@@ -48,15 +49,15 @@ impl Cli {
             Actions::Add(add) => match add.kind {
                 Kind::Book => {
                     print!("Title: ");
-                    let title: String = text_io::read!("Title: {}\n");
+                    let title: String = read!("{}\n");
+                    print!("Author: ");
+                    let author: String = read!("{}\n");
+
                     repository::Add::add(
                         &resources_repo,
                         Resource {
                             id: uuid::Uuid::new_v4(),
-                            kind: resources::Kind::Book {
-                                title: "Bruh".to_string(),
-                                author: "Bruh momemnto".to_string(),
-                            },
+                            kind: resources::Kind::Book { title, author },
                             topics: HashSet::new(),
                         },
                     )?;
