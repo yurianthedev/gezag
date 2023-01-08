@@ -5,18 +5,11 @@ use directories::UserDirs;
 use std::{collections::HashSet, env, ffi::OsString, path::Path};
 use text_io::read;
 
-use crate::{
-    entities::{
-        resources::{self, Resource},
-        Index,
-    },
-    indexer::Indexer,
-    repositories::{repository, ResourceRepository},
+use crate::domain::{
+    entities::resource::ResourceBuilder,
+    repositories::{Librarian, ResourcesRepository},
 };
 
-/// gezag resource add book.
-/// gezag topic add --name "Machine Learning".
-/// gezag resource list --topic "Machine Learning".
 #[derive(Parser)]
 #[command(author = "yurian", version, about = "Manage your resources")]
 pub struct Cli {
@@ -32,10 +25,11 @@ impl Cli {
             .clone()
             .map(|p| Path::new(&p).to_owned())
             .or_else(|| env::var_os("GEZAG_BASE_DIR").map(|p| Path::new(&p).to_owned()))
-            .or_else(|| UserDirs::new().map(|uds| uds.home_dir().to_owned()));
+            .or_else(|| UserDirs::new().map(|uds| uds.home_dir().to_owned()))
+            .unwrap();
     }
 
-    pub fn run(&self, indexer: impl Indexer) {
+    pub fn run(&self, indexer: impl Librarian) {
         match &self.entity {
             Entities::Resources(res) => Self::resources(res, indexer).unwrap(),
         };
@@ -43,7 +37,7 @@ impl Cli {
 
     fn resources(
         resources: &Resources,
-        resources_repo: impl ResourceRepository,
+        resources_repo: impl ResourcesRepository,
     ) -> Result<(), anyhow::Error> {
         match &resources.action {
             Actions::Add(add) => match add.kind {
@@ -53,30 +47,21 @@ impl Cli {
                     print!("Author: ");
                     let author: String = read!("{}\n");
 
-                    repository::Add::add(
-                        &resources_repo,
-                        Resource {
-                            id: uuid::Uuid::new_v4(),
-                            kind: resources::Kind::Book { title, author },
-                            topics: HashSet::new(),
-                        },
-                    )?;
+                    resources_repo.add(ResourceBuilder {});
                 }
             },
             Actions::List(l) => {
                 if l.all {
-                    repository::List::list(&resources_repo)?
+                    resources_repo
+                        .list()?
                         .iter()
                         .for_each(|el| println!("{:?}", el));
                 } else if l.author.is_some() {
-                    repository::ListBy::list_by(
-                        &resources_repo,
-                        &resources::Indeces::BookIndex(resources::BookIndeces::Author(
-                            l.author.clone().unwrap(),
-                        )),
-                    )?
-                    .iter()
-                    .for_each(|el| println!("{:?}", el));
+                    todo!()
+                    //     resources_repo.list_by();
+                    // )?
+                    // .iter()
+                    // .for_each(|el| println!("{:?}", el));
                 }
             }
         };

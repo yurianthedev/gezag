@@ -1,15 +1,14 @@
-mod cli;
-mod entities;
-mod indexer;
-mod repositories;
+pub mod data;
+pub mod domain;
+pub mod presentation;
 
 use clap::Parser;
 
-use crate::cli::*;
-use crate::indexer::local;
+use crate::data::repositories::local;
+use crate::presentation::cli::Cli;
 
 fn main() {
     let cli = Cli::parse();
-    let local_indexer = local::Indexer::new("index.json").unwrap();
+    let local_indexer = local::Librarian::new("index.json").unwrap();
     cli.run(local_indexer);
 }
