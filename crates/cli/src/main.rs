@@ -9,6 +9,6 @@ use crate::presentation::cli::Cli;
 
 fn main() {
     let cli = Cli::parse();
-    let local_indexer = local::Librarian::new("index.json").unwrap();
-    cli.run(local_indexer);
+    let local_librarian = local::Librarian::new("index.json").unwrap();
+    cli.run(local_librarian);
 }
