@@ -1,14 +1,18 @@
+use uuid::Uuid;
+
 use crate::domain::{
     entities::resource::{Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys},
-    repositories,
+    repositories::ResourcesRepository,
 };
 
 use super::Librarian;
 
-impl repositories::ResourcesRepository for Librarian {
+impl ResourcesRepository for Librarian {
     fn add(&self, builder: ResourceBuilder) -> Result<ResourceId, anyhow::Error> {
-        // self.update(|index| index.resources.push())
-        todo!()
+        let id = Uuid::new_v4();
+        let resource = builder.build_with_id(id);
+        self.update(|index| index.resources.push(resource))?;
+        Ok(ResourceId(id))
     }
 
     fn remove(&self, key: &ResourceKeys) -> Result<(), anyhow::Error> {

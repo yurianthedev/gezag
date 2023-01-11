@@ -17,6 +17,10 @@ thiserror = "1.0"
 toml = "0.5"
 url = "2.3"
 
+[dependencies.inquire]
+version = "0.5"
+features = ["date", "editor"]
+
 [dependencies.clap]
 version = "4.0"
 features = ["cargo", "derive"]
