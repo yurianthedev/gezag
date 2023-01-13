@@ -7,5 +7,5 @@ pub struct Topic {
     name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct TopicId(pub Uuid);

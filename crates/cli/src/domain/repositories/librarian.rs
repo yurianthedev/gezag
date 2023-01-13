@@ -1,3 +1,3 @@
-pub trait Librarian: super::ResourcesRepository {}
+pub trait Librarian: super::Resources {}
 
-impl<T> Librarian for T where T: super::ResourcesRepository {}
+impl<T> Librarian for T where T: super::Resources {}

@@ -2,7 +2,7 @@ use crate::domain::entities::resource::{
     Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys,
 };
 
-pub trait ResourcesRepository {
+pub trait Resources {
     fn add(&self, builder: ResourceBuilder) -> Result<ResourceId, anyhow::Error>;
     fn remove(&self, key: &ResourceKeys) -> Result<(), anyhow::Error>;
     fn list(&self) -> Result<Vec<Resource>, anyhow::Error>;

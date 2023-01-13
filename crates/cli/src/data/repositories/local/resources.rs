@@ -1,25 +1,31 @@
+use thiserror::Error;
 use uuid::Uuid;
 
 use crate::domain::{
-    entities::resource::{Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys},
-    repositories::ResourcesRepository,
+    entities::{
+        resource::{Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys},
+        Indexable, Keyable,
+    },
+    repositories::Resources,
 };
 
 use super::Librarian;
 
-impl ResourcesRepository for Librarian {
+impl Resources for Librarian {
     fn add(&self, builder: ResourceBuilder) -> Result<ResourceId, anyhow::Error> {
-        let id = Uuid::new_v4();
-        let resource = builder.build_with_id(id);
+        let mut builder = builder;
+        let id = ResourceId(Uuid::new_v4());
+        builder.id(id.clone());
+        let resource = builder.build()?;
         self.update(|index| index.resources.push(resource))?;
-        Ok(ResourceId(id))
+        Ok(id)
     }
 
     fn remove(&self, key: &ResourceKeys) -> Result<(), anyhow::Error> {
-        // self.update(|index| {
-        //     index.resources.retain(|res| !key.is(res));
-        // });
-        todo!()
+        self.update(|index| {
+            index.resources.retain(|res| res.is(key));
+        })?;
+        Ok(())
     }
 
     fn list(&self) -> Result<Vec<Resource>, anyhow::Error> {
@@ -27,16 +33,25 @@ impl ResourcesRepository for Librarian {
     }
 
     fn list_by(&self, index: &ResourceIndeces) -> Result<Vec<Resource>, anyhow::Error> {
-        // Ok(self
-        //     .read()?
-        //     .resources
-        //     .into_iter()
-        //     .filter(|res| entities::Index::is_related(index, res))
-        //     .collect())
-        todo!()
+        Ok(self
+            .read()?
+            .resources
+            .into_iter()
+            .filter(|res| res.is_related_to(index))
+            .collect())
     }
 
     fn fetch(&self, key: &ResourceKeys) -> Result<Resource, anyhow::Error> {
-        todo!()
+        if let Some(resource) = self.read()?.resources.into_iter().find(|res| res.is(key)) {
+            Ok(resource)
+        } else {
+            Err(LibrarianError::NotFound(key.to_owned()))?
+        }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum LibrarianError {
+    #[error("not found")]
+    NotFound(ResourceKeys),
 }
