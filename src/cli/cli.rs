@@ -7,9 +7,8 @@ use super::{
     prompts, CliArgs, CliArgsResourcesActions, CliArgsResourcesKinds, CliArgsSubcommands,
 };
 use crate::{
-    data::repositories::local,
-    domain::entities::resource::ResourceBuilder,
-    domain::repositories::{Librarian, Resources},
+    entities::resource::ResourceBuilder,
+    repositories::{local, Librarian, Resources},
 };
 
 pub struct Cli {
@@ -18,6 +17,7 @@ pub struct Cli {
 }
 
 impl Default for Cli {
+    /// Parses the CliArguments and creates a default [config_provider](CliProvider).
     fn default() -> Self {
         Self {
             args: CliArgs::parse(),
@@ -36,7 +36,8 @@ impl Cli {
                 let librarian = self
                     .create_libarian()
                     .expect("Error while creating a librarian. We suggest to run `config`.");
-                self.process(librarian).unwrap();
+                self.run_with_librarian(librarian)
+                    .expect("Error running the command");
             }
         };
     }
@@ -49,7 +50,7 @@ impl Cli {
     }
 
     /// We asume `Config` is unreachable at this point because it does not need a librarian to run.
-    fn process(&self, librarian: impl Librarian) -> Result<(), anyhow::Error> {
+    fn run_with_librarian(&self, librarian: impl Librarian) -> Result<(), anyhow::Error> {
         match &self.args.subcommand {
             CliArgsSubcommands::Resources(rsrc_args) => match &rsrc_args.action {
                 CliArgsResourcesActions::Add(add_args) => match &add_args.kind {
@@ -65,6 +66,7 @@ impl Cli {
                 CliArgsResourcesActions::List(list_args) => {
                     if list_args.all {
                         librarian.list()?.iter().for_each(|el| println!("{el:?}"));
+                    } else if list_args.author.is_some() {
                     }
 
                     Ok(())

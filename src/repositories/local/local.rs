@@ -6,7 +6,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::domain::entities::{resource::Resource, topic::Topic};
+use crate::entities::{resource::Resource, topic::Topic};
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Registry {

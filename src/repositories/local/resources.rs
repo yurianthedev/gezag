@@ -1,7 +1,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::domain::{
+use crate::{
     entities::{
         resource::{Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys},
         Indexable, Keyable,

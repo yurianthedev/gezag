@@ -1,4 +1,4 @@
-use crate::domain::entities::resource::{
+use crate::entities::resource::{
     Resource, ResourceBuilder, ResourceId, ResourceIndeces, ResourceKeys,
 };
 

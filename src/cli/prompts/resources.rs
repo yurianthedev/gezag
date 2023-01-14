@@ -1,6 +1,6 @@
 use inquire::{error::InquireResult, Text};
 
-use crate::domain::entities::resource::BookBuilder;
+use crate::entities::resource::BookBuilder;
 
 pub fn add_book() -> InquireResult<BookBuilder> {
     let title = Text::new("Title").prompt()?;

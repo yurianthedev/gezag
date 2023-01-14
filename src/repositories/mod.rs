@@ -1,3 +1,5 @@
+pub mod local;
+
 mod librarian;
 mod resources;
 
