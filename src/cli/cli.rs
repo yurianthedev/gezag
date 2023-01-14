@@ -55,10 +55,8 @@ impl Cli {
             CliArgsSubcommands::Resources(rsrc_args) => match &rsrc_args.action {
                 CliArgsResourcesActions::Add(add_args) => match &add_args.kind {
                     CliArgsResourcesKinds::Book => {
-                        let book_builder = prompts::add_book()?;
-                        let rsrc_builder = ResourceBuilder::default()
-                            .kind(book_builder.build())
-                            .to_owned();
+                        let book = prompts::add_book()?;
+                        let rsrc_builder = ResourceBuilder::default().kind(book).to_owned();
                         librarian.add(rsrc_builder)?;
                         Ok(())
                     }

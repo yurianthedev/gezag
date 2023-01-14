@@ -61,17 +61,17 @@ impl BookBuilder {
         }
     }
 
-    pub fn with_title(&mut self, title: String) -> &mut Self {
+    pub fn with_title(mut self, title: String) -> Self {
         self.title = Some(title);
         self
     }
 
-    pub fn with_author(&mut self, author: String) -> &mut Self {
+    pub fn with_author(mut self, author: String) -> Self {
         self.authors.push(author);
         self
     }
 
-    pub fn with_authors(&mut self, authors: Vec<String>) -> &mut Self {
+    pub fn with_authors(mut self, authors: Vec<String>) -> Self {
         let mut authors = authors;
         self.authors.append(&mut authors);
         self

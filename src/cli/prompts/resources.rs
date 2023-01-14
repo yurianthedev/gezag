@@ -1,8 +1,8 @@
 use inquire::{error::InquireResult, Text};
 
-use crate::entities::resource::BookBuilder;
+use crate::entities::resource::{BookBuilder, Kind};
 
-pub fn add_book() -> InquireResult<BookBuilder> {
+pub fn add_book() -> InquireResult<Kind> {
     let title = Text::new("Title").prompt()?;
     let author = Text::new("Author").prompt()?;
     let mut authors = Vec::new();
@@ -17,11 +17,11 @@ pub fn add_book() -> InquireResult<BookBuilder> {
         authors.push(author);
     }
 
-    let mut book_builder = BookBuilder::new();
-    book_builder
+    let book = BookBuilder::new()
         .with_title(title)
         .with_author(author)
-        .with_authors(authors);
+        .with_authors(authors)
+        .build();
 
-    Ok(book_builder)
+    Ok(book)
 }
