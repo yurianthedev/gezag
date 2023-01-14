@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     entities::resource::ResourceBuilder,
-    repositories::{local, Librarian, Resources},
+    repositories::{self, local, Librarian},
 };
 
 pub struct Cli {
@@ -42,7 +42,7 @@ impl Cli {
         };
     }
 
-    fn create_libarian(&self) -> Result<impl Resources, anyhow::Error> {
+    fn create_libarian(&self) -> Result<impl Librarian, anyhow::Error> {
         let config = self.config_provider.read()?;
         match &config.librarian {
             CliLibrarians::Local { registry } => Ok(local::Librarian::new(&registry.location)?),
@@ -57,13 +57,15 @@ impl Cli {
                     CliArgsResourcesKinds::Book => {
                         let book = prompts::add_book()?;
                         let rsrc_builder = ResourceBuilder::default().kind(book).to_owned();
-                        librarian.add(rsrc_builder)?;
+                        repositories::Resources::add(&librarian, rsrc_builder)?;
                         Ok(())
                     }
                 },
                 CliArgsResourcesActions::List(list_args) => {
                     if list_args.all {
-                        librarian.list()?.iter().for_each(|el| println!("{el:?}"));
+                        repositories::Resources::list(&librarian)?
+                            .iter()
+                            .for_each(|el| println!("{el:?}"));
                     } else if list_args.author.is_some() {
                     }
 

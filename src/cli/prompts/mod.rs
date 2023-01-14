@@ -1,5 +1,5 @@
-mod init;
+mod configure;
 mod resources;
 
-pub use init::*;
+pub use configure::*;
 pub use resources::*;

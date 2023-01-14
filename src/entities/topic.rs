@@ -1,9 +1,10 @@
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Builder, Clone)]
 pub struct Topic {
-    id: TopicId,
+    pub id: TopicId,
     name: String,
 }
 
