@@ -10,3 +10,4 @@ pub struct Topic {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct TopicId(pub Uuid);
+

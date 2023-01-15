@@ -4,11 +4,11 @@ use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 #[command(author = "yurian", version, about = "Manage your resources")]
 pub struct CliArgs {
     #[command(subcommand)]
-    pub subcommand: CliArgsSubcommands,
+    pub subcommand: CliSubcommands,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum CliArgsSubcommands {
+pub enum CliSubcommands {
     Config,
     Resources(ResourcesArgs),
 }
@@ -16,11 +16,11 @@ pub enum CliArgsSubcommands {
 #[derive(Debug, Args)]
 pub struct ResourcesArgs {
     #[command(subcommand)]
-    pub action: CliArgsResourcesActions,
+    pub action: CliResourcesActions,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum CliArgsResourcesActions {
+pub enum CliResourcesActions {
     Add(ResourcesAddArgs),
     List(ResourcesListArgs),
 }

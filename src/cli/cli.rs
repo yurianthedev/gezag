@@ -4,7 +4,7 @@ use std::fs::{self};
 
 use super::{
     config::{CliConfig, CliConfigProvider, CliLibrarians, LocalRegistryConfig},
-    prompts, CliArgs, CliArgsResourcesActions, CliArgsResourcesKinds, CliArgsSubcommands,
+    prompts, CliArgs, CliArgsResourcesKinds, CliResourcesActions, CliSubcommands,
 };
 use crate::{
     entities::resource::ResourceBuilder,
@@ -31,8 +31,8 @@ impl Cli {
     /// why it just panic instead of returning a result further.
     pub fn run(&self) {
         match &self.args.subcommand {
-            CliArgsSubcommands::Config => self.config().unwrap(),
-            CliArgsSubcommands::Resources(_) => {
+            CliSubcommands::Config => self.config().unwrap(),
+            CliSubcommands::Resources(_) => {
                 let librarian = self
                     .create_libarian()
                     .expect("Error while creating a librarian. We suggest to run `config`.");
@@ -52,8 +52,8 @@ impl Cli {
     /// We asume `Config` is unreachable at this point because it does not need a librarian to run.
     fn run_with_librarian(&self, librarian: impl Librarian) -> Result<(), anyhow::Error> {
         match &self.args.subcommand {
-            CliArgsSubcommands::Resources(rsrc_args) => match &rsrc_args.action {
-                CliArgsResourcesActions::Add(add_args) => match &add_args.kind {
+            CliSubcommands::Resources(rsrc_args) => match &rsrc_args.action {
+                CliResourcesActions::Add(add_args) => match &add_args.kind {
                     CliArgsResourcesKinds::Book => {
                         let book = prompts::add_book()?;
                         let rsrc_builder = ResourceBuilder::default().kind(book).to_owned();
@@ -61,7 +61,7 @@ impl Cli {
                         Ok(())
                     }
                 },
-                CliArgsResourcesActions::List(list_args) => {
+                CliResourcesActions::List(list_args) => {
                     if list_args.all {
                         repositories::Resources::list(&librarian)?
                             .iter()
@@ -72,7 +72,7 @@ impl Cli {
                     Ok(())
                 }
             },
-            CliArgsSubcommands::Config => unreachable!(),
+            CliSubcommands::Config => unreachable!(),
         }
     }
 

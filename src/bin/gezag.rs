@@ -1,4 +1,4 @@
-use gezag_cli::cli::Cli;
+use gezag_cli::Cli;
 
 fn main() {
     let cli = Cli::default();

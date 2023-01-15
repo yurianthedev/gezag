@@ -49,9 +49,11 @@ impl Resources for Librarian {
         }
     }
 }
+ 
 
 #[derive(Debug, Error)]
 pub enum LibrarianError {
     #[error("not found")]
     NotFound(ResourceKeys),
 }
+
