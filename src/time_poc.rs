@@ -3,20 +3,19 @@
 use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Weekday};
 use std::{collections::HashMap, vec};
-use tailcall::tailcall;
 use thiserror::Error;
 
 /// ## Conventions:
 /// - D11 means *desirability*. These are indexable ranges of time of how much the user is willing to use that time, in inverse order – the lowest the index,
 /// the better for the user to use that time, starting at 0.
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct DateTimeRange {
     start: NaiveDateTime,
     end: NaiveDateTime,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct TimeRange {
     start: NaiveTime,
     end: NaiveTime,
@@ -27,12 +26,13 @@ type WeeklyD11Map = HashMap<Weekday, TimeD11Index>;
 
 type DateTimeD11Index = Vec<Vec<DateTimeRange>>;
 
+#[derive(Debug, Clone)]
 struct UserCfg {
     weekly_d11: WeeklyD11Map,
 }
 
 impl Default for UserCfg {
-    /// all days from 7 to 22.
+    /// All days, from 7 to 22, are desireble for ≤doing things≥.
     fn default() -> Self {
         let all_weekdays = [
             Weekday::Mon,
@@ -49,7 +49,7 @@ impl Default for UserCfg {
         };
         let pairs = all_weekdays
             .into_iter()
-            .map(|weekday| (weekday, vec![vec![time_range]]));
+            .map(|weekday| (weekday, vec![vec![time_range]])); // The outer Vec is the index of desirability. That means the whole 7 to 22 time-slot is at top priority of desire.
         Self {
             weekly_d11: HashMap::from_iter(pairs),
         }
@@ -67,6 +67,7 @@ struct Cycles {
 }
 
 /// The key represents an increasing-number from zero, symbolising the "desirabilty" of a time range.
+#[derive(Debug, Clone)]
 struct ScheduleOpts {
     d11: DateTimeD11Index,
 }
@@ -139,12 +140,14 @@ impl ScheduleOpts {
     }
 }
 
+#[derive(Debug, Clone)]
 enum Interval {
     Weekly,
     Dayly,
     PerCycle,
 }
 
+#[derive(Debug, Clone)]
 enum Stuff {
     Habit {
         estimated_duration: Duration,
@@ -156,47 +159,62 @@ enum Stuff {
         min: Option<Duration>,
         desirable: Duration,
         max: Option<Duration>,
-        schedule_options: ScheduleOpts,
         interval: Interval,
+        schedule_options: ScheduleOpts,
     },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Action {
     start: NaiveDateTime,
     duration: Duration,
 }
 
 /// For the time being, just per `Cycle`.
+#[derive(Debug, Clone, Default)]
 struct Schedule {
     actions: Vec<Action>,
 }
 
 #[derive(Error, Debug)]
 enum ScheduleError {
+    #[error("")]
+    InvalidCandidate(Schedule),
     #[error("We couldn't find a valid solution for your criteria.")]
-    NotValidSolutionFound,
+    NoValidSolutionFound,
 }
 
 impl Schedule {
+    pub fn is_valid(&self) -> bool {
+        todo!()
+    }
+
+    fn candidates(&self, _cycle: &Cycle, _stuff: &[Stuff]) -> Vec<Schedule> {
+        todo!()
+    }
+
     fn schedule(cycle: &Cycle, stuff: Vec<Stuff>) -> Result<Self> {
-        #[tailcall]
-        fn inner_schedule() {}
+        /// For now I'm just returning a single *solution* (`Schedule`), but in the fututre I could
+        /// return multiple with different biases for the user to choose.
+        fn inner_schedule(
+            cycle: &Cycle,
+            left: Vec<Stuff>,
+            candidate: Schedule,
+        ) -> Result<Schedule> {
+            if left.is_empty() && !candidate.is_valid() {
+                return Err(ScheduleError::InvalidCandidate(candidate).into());
+            } else if left.is_empty() && candidate.is_valid() {
+                return Ok(candidate);
+            }
 
-        // Naive solution: fixes the current item as the first to be set, and set the rest on the available spots.
-        let mut outer_solutions: Vec<Vec<Action>> = Vec::new();
-        for outer_stf in &stuff {
-            let mut inner_solutions: Vec<Action> = Vec::new();
-            for inner_stf in &stuff {}
+            for s in candidate.candidates(cycle, &left) {
+                return inner_schedule(cycle, left, s);
+            }
+
+            unreachable!()
         }
 
-        if outer_solutions.is_empty() {
-            Err(ScheduleError::NotValidSolutionFound.into())
-        } else {
-            Ok(Self {
-                actions: outer_solutions.first().unwrap().to_owned(),
-            })
-        }
+        inner_schedule(cycle, stuff, Schedule::default())
     }
 }
 
@@ -225,12 +243,13 @@ mod tests {
             interval: Interval::Dayly,
             schedule_options: ScheduleOpts::all_in_cycle(
                 cycles.cycles.get(0).unwrap(),
-                usr_cfg.weekly_d11,
+                usr_cfg.clone().weekly_d11,
             ),
         };
-        let stuff: Vec<Stuff> = vec![clean_litter];
+        println!("UsrCfg {:?}", clean_litter);
+        // let stuff: Vec<Stuff> = vec![clean_litter];
 
-        Schedule::schedule(cycles.cycles.first().unwrap(), stuff)?;
+        // Schedule::schedule(cycles.cycles.first().unwrap(), stuff)?;
 
         Ok(())
     }
