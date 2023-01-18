@@ -158,12 +158,6 @@ struct ScheduleOpts {
     d11: DateTimeD11Index,
 }
 
-#[derive(Debug, Error)]
-enum CycleCfgErr {
-    #[error("No cycles are configured")]
-    NotCycleConfigured,
-}
-
 /// When the user desires (and in which priority) to schedule their actions.
 impl ScheduleOpts {
     /// Creates desirability slots only on weekends in the cycle from a default weekly
