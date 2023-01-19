@@ -1,9 +1,12 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused)]
 
+use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Weekday};
 use delegate::delegate;
 use std::{
+    borrow::BorrowMut,
     collections::HashMap,
+    hash::Hash,
     ops::{Add, Sub},
     vec,
 };
@@ -14,7 +17,7 @@ use uuid::Uuid;
 /// - D11 means *desirability*. These are indexable ranges of time of how much the user is willing to use that time, in inverse order – the lowest the index,
 /// the better for the user to use that time, starting at 0.
 
-/// Something with a start and an end, with some useful implementations to handle durations and
+/// A range with a start (**inclusive**) and an end (**exclusive**), with some useful implementations to handle durations and
 /// other things.
 #[derive(Debug, Clone, Copy)]
 struct Range<T> {
@@ -37,24 +40,40 @@ impl<T: Add<Duration, Output = T> + Clone> Range<T> {
     }
 }
 
-impl<T: Sub<T, Output = Duration> + Clone> Range<T> {
-    pub fn duration(&self) -> Duration {
+trait Timeable {
+    fn duration(&self) -> Duration;
+}
+
+impl<T: Sub<T, Output = Duration> + Clone> Timeable for Range<T> {
+    fn duration(&self) -> Duration {
         self.end.clone().sub(self.start.clone())
+    }
+}
+
+impl<T: Add<Duration, Output = T> + Clone> Range<T>
+where
+    Self: Timeable,
+{
+    pub fn shift_to(&mut self, new_start: T) {
+        let duration = self.duration();
+        self.start = new_start.clone();
+        self.end = new_start + duration;
     }
 }
 
 impl<T: PartialOrd> Range<T> {
     /// Does the `with` range *overlaps* with [`self`](Range)?.
+    ///
+    /// [nonminimal_bool](clippy::nonminimal_bool) is allowed because I want to be expressive, not
+    /// *"minimal"*.
+    #[allow(clippy::nonminimal_bool)]
     pub fn overlaps(&self, with: &Self) -> bool {
-        if self.start >= with.end {
-            // If it starts after action ends.
-            true
-        } else if with.end <= self.start {
-            // If action ends before `self` start.
-            true
-        } else {
-            false
-        }
+        self.start > with.start && self.end > with.end
+            || self.start < with.start && self.end > with.end
+    }
+
+    pub fn contains(&self, other: &Self) -> bool {
+        self.start <= other.start && self.end >= other.end
     }
 }
 
@@ -77,10 +96,8 @@ impl Iterator for NaiveDateIter {
 }
 
 impl Range<NaiveDate> {
-    pub fn into_days_iter(&self) -> NaiveDateIter {
-        NaiveDateIter {
-            range: self.clone(),
-        }
+    pub fn iter_days(&self) -> NaiveDateIter {
+        NaiveDateIter { range: *self }
     }
 }
 
@@ -124,6 +141,7 @@ impl Default for UserCfg {
         let pairs = all_weekdays
             .into_iter()
             .map(|weekday| (weekday, vec![vec![time_range]])); // The outer Vec is the index of desirability. That means the whole 7 to 22 time-slot is at top priority of desire.
+
         Self {
             weekly_d11: HashMap::from_iter(pairs),
         }
@@ -163,7 +181,7 @@ impl ScheduleOpts {
     /// Creates desirability slots only on weekends in the cycle from a default weekly
     /// desirability.
     pub fn weekends_in_clycle(cycle: &Cycle, usr_d11: WeeklyD11Map) -> Self {
-        Self::build_from_usr_cfg(cycle, usr_d11, |weekday| {
+        Self::build_from_weekly_d11(cycle, usr_d11, |weekday| {
             vec![Weekday::Sat, Weekday::Sun].contains(&weekday)
         })
     }
@@ -171,7 +189,7 @@ impl ScheduleOpts {
     /// Creates desirability slots  only on weekdays (working days) in the cycle from a
     /// default weekly desirability.
     pub fn weekdays_in_cycle(cycle: &Cycle, usr_d11: WeeklyD11Map) -> Self {
-        Self::build_from_usr_cfg(cycle, usr_d11, |weekday| {
+        Self::build_from_weekly_d11(cycle, usr_d11, |weekday| {
             vec![
                 Weekday::Mon,
                 Weekday::Tue,
@@ -185,7 +203,7 @@ impl ScheduleOpts {
 
     /// Creates desirability slots for each day in the cycle from a default weekly desirability.
     pub fn all_in_cycle(cycle: &Cycle, usr_d11: WeeklyD11Map) -> Self {
-        Self::build_from_usr_cfg(cycle, usr_d11, |_| true)
+        Self::build_from_weekly_d11(cycle, usr_d11, |_| true)
     }
 
     /// Helper function who builds/generate a ≤default≥ desirability `Index` of the cycle
@@ -193,14 +211,14 @@ impl ScheduleOpts {
     ///
     /// This is useful because the user might already set preferences on their time-slots, and
     /// they want to just use them to match an activity with those slots.
-    fn build_from_usr_cfg(
+    fn build_from_weekly_d11(
         cycle: &Cycle,
         usr_d11: WeeklyD11Map,
         is_weekday: impl (Fn(Weekday) -> bool),
     ) -> Self {
         let mut d11: DateTimeD11Index = Vec::with_capacity(20);
 
-        for day in cycle.range.into_days_iter() {
+        for day in cycle.range.iter_days() {
             // Skips if we're not talking about the same weekday on the default slots.
             if is_weekday(day.weekday()) {
                 continue;
@@ -209,7 +227,7 @@ impl ScheduleOpts {
             // What are the time-slots (by indexable priority) the user has specified for the current weekday?.
             let weekday_d11 = usr_d11.get(&day.weekday()).unwrap().to_owned();
             for (d11_index, time_ranges) in weekday_d11.into_iter().enumerate() {
-                // Time ranges provided by the user are related only to a weekday; they're just that, times.
+                // Time ranges provided by the user are related only to a weekday; they're just that times.
                 // So we add the current day in the cycle as the date the time-slot will apply.
                 let mut date_time_ranges: Vec<_> = time_ranges
                     .into_iter()
@@ -238,15 +256,27 @@ enum Interval {
     PerCycle,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct StuffId(pub Uuid);
+
 #[derive(Debug, Clone)]
 struct Stuff {
-    id: Uuid,
+    id: StuffId,
     kind: StuffKinds,
 }
 
 impl PartialEq for Stuff {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Eq for Stuff {}
+
+/// Hashed only by [id](StuffId).
+impl Hash for Stuff {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
     }
 }
 
@@ -285,7 +315,7 @@ impl Action {
 #[derive(Debug, Clone)]
 struct Schedule {
     cycle: Cycle,
-    actions: HashMap<Stuff, Action>,
+    actions: HashMap<Stuff, Vec<Action>>,
 }
 
 impl Schedule {
@@ -297,22 +327,20 @@ impl Schedule {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 enum ScheduleError {
     #[error("We couldn't find a valid solution for your criteria.")]
     NoValidSolutionFound,
 }
 
 impl Schedule {
-    pub fn schedule(self, stuff: Vec<Stuff>) -> Vec<Self> {
+    pub fn possible_schedules(self, stuff: Vec<Stuff>) -> Vec<Self> {
         fn inner_schedule(left: Vec<Stuff>, candidate: Schedule, solutions: &mut Vec<Schedule>) {
-            if left.is_empty() {
-                if candidate.is_valid() {
-                    solutions.push(candidate);
-                }
+            if left.is_empty() && candidate.is_valid() {
+                solutions.push(candidate);
             }
 
-            for s in left {}
+            for (i, _) in left.iter().enumerate() {}
 
             todo!()
         }
@@ -326,28 +354,50 @@ impl Schedule {
         todo!("I need to know if the schedule allocated satisfies all the constraints given set into Stuff")
     }
 
-    pub fn schedule_single(self, stuff: Stuff) -> Option<Self> {
-        match stuff.kind {
+    /// Creates a single [action](Action) for the [`stuff`](Stuff), and add it to the schedule.
+    /// TODO: We could return multiple schedules instead of one, but since the solutions are so
+    /// many, we'd need to first came up with a way more opimal algorithm.
+    pub fn schedule_single(&mut self, stuff: Stuff) {
+        match &stuff.kind {
             StuffKinds::Habit {
                 estimated_duration,
                 times,
                 interval,
                 schedule_options,
-            } => match interval {
-                Interval::Weekly => {
-                    for dtr in schedule_options.d11.iter().flatten() {
-                        let candidate = DateTimeRange {
-                            start: dtr.start.clone(),
-                            end: dtr.start.add(estimated_duration).clone(),
-                        };
-                        // self.actions
-                        //     .values()
-                        //     .filter(|a| candidate.action_collides(a));
+            } => {
+                // It uses all the desirability indexes, but lowest are first so it still have
+                // priority precedence.
+                for dtr in schedule_options.d11.iter().flatten() {
+                    let mut candidate =
+                        DateTimeRange::from_duration(dtr.start, *estimated_duration);
+
+                    while dtr.contains(&candidate) {
+                        if let Some(overlap) = self
+                            .actions
+                            .values()
+                            .flatten()
+                            .find(|a| candidate.overlaps(&a.range))
+                        {
+                            // Something overlaped.
+                            candidate.shift_to(overlap.range.start); // We move the start of the
+                                                                     // new candidate.
+                        } else {
+                            // We're good, that slot works.
+                            let action = Action { range: candidate };
+                            let s = self.actions.borrow_mut().entry(stuff.clone()).or_default();
+                            s.push(action);
+                            match interval {
+                                Interval::Weekly => todo!(),
+                                Interval::Dayly => todo!(),
+                                Interval::PerCycle => todo!(),
+                            };
+                        }
                     }
                 }
-                Interval::Dayly => todo!(),
-                Interval::PerCycle => todo!(),
-            },
+
+
+                todo!()
+            }
             StuffKinds::Repeatable {
                 min,
                 desirable,
@@ -363,10 +413,6 @@ impl Schedule {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code, unreachable_code, unused)]
-
-    use chrono::DateTime;
-
     use super::*;
 
     #[test]
@@ -384,7 +430,7 @@ mod tests {
         };
 
         let work = Stuff {
-            id: Uuid::new_v4(),
+            id: StuffId(Uuid::new_v4()),
             kind: StuffKinds::Repeatable {
                 min: Some(Duration::hours(5)),
                 desirable: Duration::hours(7),
@@ -397,14 +443,14 @@ mod tests {
             },
         };
         let clean_litter = Stuff {
-            id: Uuid::new_v4(),
+            id: StuffId(Uuid::new_v4()),
             kind: StuffKinds::Habit {
                 estimated_duration: Duration::minutes(15),
                 times: 1,
                 interval: Interval::Dayly,
                 schedule_options: ScheduleOpts::all_in_cycle(
                     cycles.cycles.get(0).unwrap(),
-                    usr_cfg.clone().weekly_d11,
+                    usr_cfg.weekly_d11,
                 ),
             },
         };
