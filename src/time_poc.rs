@@ -62,14 +62,15 @@ where
 }
 
 impl<T: PartialOrd> Range<T> {
-    /// Does the `with` range *overlaps* with [`self`](Range)?.
+    /// Does the `with` range *overlaps* with [`self`](Range)?. This property should hold
+    /// backwards.
     ///
     /// [nonminimal_bool](clippy::nonminimal_bool) is allowed because I want to be expressive, not
     /// *"minimal"*.
     #[allow(clippy::nonminimal_bool)]
     pub fn overlaps(&self, with: &Self) -> bool {
-        self.start > with.start && self.end > with.end
-            || self.start < with.start && self.end > with.end
+        with.start < self.start && with.end > self.start
+            || self.end > with.start && with.end > self.end
     }
 
     pub fn contains(&self, other: &Self) -> bool {
@@ -152,12 +153,12 @@ impl Default for UserCfg {
 /// more attributes to [Cycle] that might differ from just a simple range of dates.
 #[derive(Debug, Clone)]
 struct Cycle {
-    range: DateRange,
+    date_range: DateRange,
 }
 
 impl Cycle {
     delegate! {
-        to self.range {
+        to self.date_range {
             pub fn duration(&self) -> Duration;
             pub fn overlaps(&self, with: &DateRange) -> bool;
         }
@@ -218,7 +219,7 @@ impl ScheduleOpts {
     ) -> Self {
         let mut d11: DateTimeD11Index = Vec::with_capacity(20);
 
-        for day in cycle.range.iter_days() {
+        for day in cycle.date_range.iter_days() {
             // Skips if we're not talking about the same weekday on the default slots.
             if is_weekday(day.weekday()) {
                 continue;
@@ -282,12 +283,15 @@ impl Hash for Stuff {
 
 #[derive(Debug, Clone)]
 enum StuffKinds {
+    /// - [`times`](u8): This means times per [`interval`](Interval).
     Habit {
         estimated_duration: Duration,
         times: u8,
         interval: Interval,
         schedule_options: ScheduleOpts,
     },
+    /// # Attributes
+    /// - `min`, `desirable` and `max` are [durations](Duration) per [`interval`](Interval).
     Repeatable {
         min: Option<Duration>,
         desirable: Duration,
@@ -299,12 +303,12 @@ enum StuffKinds {
 
 #[derive(Debug, Clone, Copy)]
 struct Action {
-    range: DateTimeRange,
+    dt_range: DateTimeRange,
 }
 
 impl Action {
     delegate! {
-        to self.range {
+        to self.dt_range {
             pub fn duration(&self) -> Duration;
             pub fn overlaps(&self, with: &DateTimeRange) -> bool;
         }
@@ -354,9 +358,9 @@ impl Schedule {
         todo!("I need to know if the schedule allocated satisfies all the constraints given set into Stuff")
     }
 
+    // TODO: We could return multiple schedules instead of one, but since the solutions are so
+    // many, we'd need to first came up with a way more opimal algorithm.
     /// Creates a single [action](Action) for the [`stuff`](Stuff), and add it to the schedule.
-    /// TODO: We could return multiple schedules instead of one, but since the solutions are so
-    /// many, we'd need to first came up with a way more opimal algorithm.
     pub fn schedule_single(&mut self, stuff: Stuff) {
         match &stuff.kind {
             StuffKinds::Habit {
@@ -367,7 +371,10 @@ impl Schedule {
             } => {
                 // It uses all the desirability indexes, but lowest are first so it still have
                 // priority precedence.
-                for dtr in schedule_options.d11.iter().flatten() {
+
+                let mut dtrs = schedule_options.d11.iter().flatten();
+
+                for dtr in dtrs {
                     let mut candidate =
                         DateTimeRange::from_duration(dtr.start, *estimated_duration);
 
@@ -376,27 +383,21 @@ impl Schedule {
                             .actions
                             .values()
                             .flatten()
-                            .find(|a| candidate.overlaps(&a.range))
+                            .find(|a| candidate.overlaps(&a.dt_range))
                         {
                             // Something overlaped.
-                            candidate.shift_to(overlap.range.start); // We move the start of the
-                                                                     // new candidate.
+                            candidate.shift_to(overlap.dt_range.start); // We move the start of the
+                                                                        // new candidate.
                         } else {
                             // We're good, that slot works.
-                            let action = Action { range: candidate };
+                            let action = Action {
+                                dt_range: candidate,
+                            };
                             let s = self.actions.borrow_mut().entry(stuff.clone()).or_default();
                             s.push(action);
-                            match interval {
-                                Interval::Weekly => todo!(),
-                                Interval::Dayly => todo!(),
-                                Interval::PerCycle => todo!(),
-                            };
                         }
                     }
                 }
-
-
-                todo!()
             }
             StuffKinds::Repeatable {
                 min,
@@ -404,10 +405,8 @@ impl Schedule {
                 max,
                 interval,
                 schedule_options,
-            } => todo!(),
+            } => unreachable!(),
         };
-
-        todo!()
     }
 }
 
@@ -416,10 +415,80 @@ mod tests {
     use super::*;
 
     #[test]
+    fn does_overlaps() {
+        let date = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
+        let dtr1 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(8, 0, 0).unwrap()),
+        );
+        let dtr2 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(5, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 1).unwrap()),
+        );
+        let dtr3 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap()),
+        );
+
+        assert!(dtr1.overlaps(&dtr2));
+        assert!(dtr1.overlaps(&dtr3));
+        assert!(dtr2.overlaps(&dtr1));
+        assert!(dtr2.overlaps(&dtr3));
+        assert!(dtr3.overlaps(&dtr1));
+        assert!(dtr3.overlaps(&dtr2));
+    }
+
+    #[test]
+    fn does_not_overlaps() {
+        let date = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
+        let dtr1 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+        );
+        let dtr2 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(8, 0, 0).unwrap()),
+        );
+
+        assert!(!dtr1.overlaps(&dtr2));
+        assert!(!dtr2.overlaps(&dtr1)); // Since it should be reflexive.
+    }
+
+    #[test]
+    fn does_contains() {
+        let date = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
+        let dtr1 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+        );
+        let dtr2 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+        );
+
+        assert!(dtr1.contains(&dtr2));
+    }
+
+    #[test]
+    fn does_not_contains() {
+        let date = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
+        let dtr1 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 59, 59).unwrap()),
+        );
+        let dtr2 = DateTimeRange::new(
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(6, 0, 0).unwrap()),
+            NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+        );
+
+        assert!(!dtr1.contains(&dtr2));
+    }
+
+    #[test]
     fn simple_valid_schedule() {
         let usr_cfg = UserCfg::default();
         let cycle = Cycle {
-            range: Range::from_duration(
+            date_range: Range::from_duration(
                 NaiveDate::from_ymd_opt(2023, 1, 16).unwrap(),
                 Duration::weeks(2),
             ),
@@ -455,7 +524,11 @@ mod tests {
             },
         };
 
-        let stuff: Vec<Stuff> = vec![clean_litter, work];
+        let stuff: Vec<Stuff> = vec![clean_litter.clone(), work];
+        let mut schedule = Schedule::new(cycle);
+        schedule.schedule_single(clean_litter);
+
+        println!("{:?}", schedule);
         // assert!(!Schedule::schedule(stuff).is_empty(), "no solution found");
     }
 }
