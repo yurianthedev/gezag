@@ -3,11 +3,12 @@
 use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Weekday};
 use delegate::delegate;
+use itertools::Itertools;
 use std::{
-    borrow::BorrowMut,
+    borrow::{Borrow, BorrowMut},
     collections::HashMap,
     hash::Hash,
-    ops::{Add, Sub},
+    ops::{Add, RangeInclusive, Sub},
     vec,
 };
 use thiserror::Error;
@@ -19,7 +20,7 @@ use uuid::Uuid;
 
 /// A range with a start (**inclusive**) and an end (**exclusive**), with some useful implementations to handle durations and
 /// other things.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Range<T> {
     start: T,
     end: T,
@@ -161,6 +162,7 @@ impl Cycle {
         to self.date_range {
             pub fn duration(&self) -> Duration;
             pub fn overlaps(&self, with: &DateRange) -> bool;
+            pub fn iter_days(&self) -> NaiveDateIter;
         }
     }
 }
@@ -301,7 +303,7 @@ enum StuffKinds {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Action {
     dt_range: DateTimeRange,
 }
@@ -335,79 +337,6 @@ impl Schedule {
 enum ScheduleError {
     #[error("We couldn't find a valid solution for your criteria.")]
     NoValidSolutionFound,
-}
-
-impl Schedule {
-    pub fn possible_schedules(self, stuff: Vec<Stuff>) -> Vec<Self> {
-        fn inner_schedule(left: Vec<Stuff>, candidate: Schedule, solutions: &mut Vec<Schedule>) {
-            if left.is_empty() && candidate.is_valid() {
-                solutions.push(candidate);
-            }
-
-            for (i, _) in left.iter().enumerate() {}
-
-            todo!()
-        }
-
-        let mut solutions = Vec::new();
-        inner_schedule(stuff, self, &mut solutions);
-        solutions
-    }
-
-    pub fn is_valid(&self) -> bool {
-        todo!("I need to know if the schedule allocated satisfies all the constraints given set into Stuff")
-    }
-
-    // TODO: We could return multiple schedules instead of one, but since the solutions are so
-    // many, we'd need to first came up with a way more opimal algorithm.
-    /// Creates a single [action](Action) for the [`stuff`](Stuff), and add it to the schedule.
-    pub fn schedule_single(&mut self, stuff: Stuff) {
-        match &stuff.kind {
-            StuffKinds::Habit {
-                estimated_duration,
-                times,
-                interval,
-                schedule_options,
-            } => {
-                // It uses all the desirability indexes, but lowest are first so it still have
-                // priority precedence.
-
-                let mut dtrs = schedule_options.d11.iter().flatten();
-
-                for dtr in dtrs {
-                    let mut candidate =
-                        DateTimeRange::from_duration(dtr.start, *estimated_duration);
-
-                    while dtr.contains(&candidate) {
-                        if let Some(overlap) = self
-                            .actions
-                            .values()
-                            .flatten()
-                            .find(|a| candidate.overlaps(&a.dt_range))
-                        {
-                            // Something overlaped.
-                            candidate.shift_to(overlap.dt_range.start); // We move the start of the
-                                                                        // new candidate.
-                        } else {
-                            // We're good, that slot works.
-                            let action = Action {
-                                dt_range: candidate,
-                            };
-                            let s = self.actions.borrow_mut().entry(stuff.clone()).or_default();
-                            s.push(action);
-                        }
-                    }
-                }
-            }
-            StuffKinds::Repeatable {
-                min,
-                desirable,
-                max,
-                interval,
-                schedule_options,
-            } => unreachable!(),
-        };
-    }
 }
 
 #[cfg(test)]
@@ -485,7 +414,54 @@ mod tests {
     }
 
     #[test]
-    fn simple_valid_schedule() {
+    fn single_habit_schedule() {
+        let usr_cfg = UserCfg::default();
+        let cycle = Cycle {
+            date_range: Range::from_duration(
+                NaiveDate::from_ymd_opt(2023, 1, 23).unwrap(),
+                Duration::weeks(1),
+            ),
+        };
+        let cycles = Cycles {
+            cycles: vec![cycle.clone()],
+            breaks: Vec::new(),
+        };
+
+        let clean_litter = Stuff {
+            id: StuffId(Uuid::new_v4()),
+            kind: StuffKinds::Habit {
+                estimated_duration: Duration::minutes(15),
+                times: 1,
+                interval: Interval::Dayly,
+                schedule_options: ScheduleOpts::all_in_cycle(
+                    cycles.cycles.get(0).unwrap(),
+                    usr_cfg.weekly_d11,
+                ),
+            },
+        };
+
+        let mut schedule = Schedule::new(cycle.clone());
+
+        let expected: Vec<_> = cycle
+            .iter_days()
+            .map(|date| Action {
+                dt_range: DateTimeRange {
+                    start: NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 0).unwrap()),
+                    end: NaiveDateTime::new(date, NaiveTime::from_hms_opt(7, 0, 15).unwrap()),
+                },
+            })
+            .collect();
+
+        println!("{:?}", schedule);
+
+        let got: Vec<_> = schedule.actions.into_values().flatten().collect();
+
+        assert!(expected.iter().all(|ex| got.contains(ex)));
+    }
+
+    #[test]
+    #[ignore]
+    fn repeatable_single_schedule() {
         let usr_cfg = UserCfg::default();
         let cycle = Cycle {
             date_range: Range::from_duration(
@@ -505,30 +481,8 @@ mod tests {
                 desirable: Duration::hours(7),
                 max: Some(Duration::hours(10)),
                 interval: Interval::Dayly,
-                schedule_options: ScheduleOpts::weekdays_in_cycle(
-                    &cycle,
-                    usr_cfg.clone().weekly_d11,
-                ),
+                schedule_options: ScheduleOpts::weekdays_in_cycle(&cycle, usr_cfg.weekly_d11),
             },
         };
-        let clean_litter = Stuff {
-            id: StuffId(Uuid::new_v4()),
-            kind: StuffKinds::Habit {
-                estimated_duration: Duration::minutes(15),
-                times: 1,
-                interval: Interval::Dayly,
-                schedule_options: ScheduleOpts::all_in_cycle(
-                    cycles.cycles.get(0).unwrap(),
-                    usr_cfg.weekly_d11,
-                ),
-            },
-        };
-
-        let stuff: Vec<Stuff> = vec![clean_litter.clone(), work];
-        let mut schedule = Schedule::new(cycle);
-        schedule.schedule_single(clean_litter);
-
-        println!("{:?}", schedule);
-        // assert!(!Schedule::schedule(stuff).is_empty(), "no solution found");
     }
 }
