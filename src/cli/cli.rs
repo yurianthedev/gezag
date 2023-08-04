@@ -84,7 +84,7 @@ impl Cli {
         if home_path.exists() && config_file_path.exists() && config_file_path.is_file() {
             cli_config = Some(self.config_provider.read()?);
         } else {
-            fs::create_dir_all(&home_path)?;
+            fs::create_dir_all(home_path)?;
         }
         // At this point the app's home dir should be waranteed to exist.
 
@@ -94,8 +94,8 @@ impl Cli {
         // TODO: I'd be nice if this match could be made against an enum.
         match chosen.as_ref() {
             "Local" => {
-                let current = cli_config.and_then(|user_config| match user_config.librarian {
-                    CliLibrarians::Local { registry } => Some(registry.location),
+                let current = cli_config.map(|cfg| match cfg.librarian {
+                    CliLibrarians::Local { registry } => registry.location,
                 });
                 let rg_location = prompts::registry_location(current)?;
                 let config = CliConfig {

@@ -48,19 +48,13 @@ pub enum Kind {
     Book { title: String, authors: Vec<String> },
 }
 
+#[derive(Default)]
 pub struct BookBuilder {
     title: Option<String>,
     authors: Vec<String>,
 }
 
 impl BookBuilder {
-    pub fn new() -> Self {
-        Self {
-            title: None,
-            authors: Vec::new(),
-        }
-    }
-
     pub fn with_title(mut self, title: String) -> Self {
         self.title = Some(title);
         self

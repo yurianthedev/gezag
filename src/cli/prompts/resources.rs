@@ -17,7 +17,7 @@ pub fn add_book() -> InquireResult<Kind> {
         authors.push(author);
     }
 
-    let book = BookBuilder::new()
+    let book = BookBuilder::default()
         .with_title(title)
         .with_author(author)
         .with_authors(authors)
